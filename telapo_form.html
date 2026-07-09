@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>テレアポメモ</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: #f2f2f7;
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    color: #1c1c1e;
+    min-height: 100vh;
+    padding-bottom: 40px;
+  }
+
+  header {
+    padding: 16px 20px 8px;
+  }
+
+  header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  header p {
+    font-size: 13px;
+    color: #8e8e93;
+    margin: 4px 0 0;
+  }
+
+  form {
+    padding: 12px 16px;
+  }
+
+  .section {
+    background: #ffffff;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+  }
+
+  .section-label {
+    font-size: 13px;
+    color: #8e8e93;
+    padding: 0 16px 6px;
+    margin-top: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 0.5px solid #e5e5ea;
+    min-height: 24px;
+  }
+
+  .field:last-child {
+    border-bottom: none;
+  }
+
+  .field label {
+    width: 108px;
+    flex-shrink: 0;
+    font-size: 15px;
+    color: #1c1c1e;
+  }
+
+  .field label .required {
+    color: #ff3b30;
+    margin-left: 2px;
+    font-size: 12px;
+  }
+
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="tel"],
+  .field input[type="datetime-local"] {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 15px;
+    text-align: right;
+    background: transparent;
+    color: #1c1c1e;
+    font-family: inherit;
+    min-width: 0;
+  }
+
+  .field input::placeholder {
+    color: #c7c7cc;
+  }
+
+  /* segmented control for online/offline */
+  .segment {
+    flex: 1;
+    display: flex;
+    background: #e9e9eb;
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  .segment button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    padding: 6px 4px;
+    font-size: 14px;
+    border-radius: 6px;
+    color: #1c1c1e;
+    font-family: inherit;
+    transition: background 0.15s ease;
+  }
+
+  .segment button.active {
+    background: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+  }
+
+  .address-field {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.2s ease;
+  }
+
+  .address-field.show {
+    max-height: 60px;
+  }
+
+  .submit-btn {
+    width: 100%;
+    background: #007aff;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 17px;
+    font-weight: 600;
+    font-family: inherit;
+    margin-top: 8px;
+  }
+
+  .submit-btn:active {
+    background: #0062cc;
+  }
+
+  .submit-btn:disabled {
+    background: #b3d4ff;
+  }
+
+  .status {
+    text-align: center;
+    font-size: 14px;
+    margin-top: 14px;
+    min-height: 18px;
+  }
+
+  .status.success { color: #34c759; }
+  .status.error { color: #ff3b30; }
+
+  .hint {
+    padding: 6px 16px 0;
+    font-size: 12px;
+    color: #c7c7cc;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>テレアポメモ</h1>
+  <p>商談が決まったらすぐ記録</p>
+</header>
+
+<form id="telapoForm">
+
+  <div class="section-label">必須項目</div>
+  <div class="section">
+    <div class="field">
+      <label>会社名<span class="required">*</span></label>
+      <input type="text" id="companyName" placeholder="株式会社〇〇" required>
+    </div>
+    <div class="field">
+      <label>日時<span class="required">*</span></label>
+      <input type="datetime-local" id="meetingDatetime" required>
+    </div>
+    <div class="field">
+      <label>商談方法<span class="required">*</span></label>
+      <div class="segment" id="meetingTypeSegment">
+        <button type="button" class="active" data-value="オンライン">オンライン</button>
+        <button type="button" data-value="対面">対面</button>
+      </div>
+    </div>
+    <div class="field address-field" id="addressField">
+      <label>住所<span class="required">*</span></label>
+      <input type="text" id="address" placeholder="東京都〇〇区...">
+    </div>
+    <div class="field">
+      <label>メール<span class="required">*</span></label>
+      <input type="email" id="email" placeholder="example@mail.com" required>
+    </div>
+  </div>
+
+  <div class="section-label">可能であれば</div>
+  <div class="section">
+    <div class="field">
+      <label>担当者名</label>
+      <input type="text" id="contactName" placeholder="山田様">
+    </div>
+    <div class="field">
+      <label>電話番号</label>
+      <input type="tel" id="phoneNumber" placeholder="090-1234-5678">
+    </div>
+  </div>
+
+  <button type="submit" class="submit-btn" id="submitBtn">保存する</button>
+  <div class="status" id="status"></div>
+  <div class="hint" id="hint"></div>
+</form>
+
+<script>
+  // ★ここに、スプレッドシート側でデプロイした「ウェブアプリURL」を貼り付けてください
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6cRGdC7uAChS-9FocWp83yrCEoMj43kpb1laFbZ61UP4yKdRYZnz5KHq8UqudOqdUDQ/exec";
+
+  const segment = document.getElementById('meetingTypeSegment');
+  const addressField = document.getElementById('addressField');
+  const addressInput = document.getElementById('address');
+  let meetingType = 'オンライン';
+
+  segment.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    segment.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    meetingType = btn.dataset.value;
+    if (meetingType === '対面') {
+      addressField.classList.add('show');
+      addressInput.required = true;
+    } else {
+      addressField.classList.remove('show');
+      addressInput.required = false;
+      addressInput.value = '';
+    }
+  });
+
+  const form = document.getElementById('telapoForm');
+  const statusEl = document.getElementById('status');
+  const submitBtn = document.getElementById('submitBtn');
+  const hintEl = document.getElementById('hint');
+
+  if (SCRIPT_URL.indexOf('YOUR_GOOGLE_APPS_SCRIPT') !== -1) {
+    hintEl.textContent = '※まだスプレッドシートと連携されていません（下部の設定手順を参照）';
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const data = {
+      companyName: document.getElementById('companyName').value.trim(),
+      meetingDatetime: document.getElementById('meetingDatetime').value,
+      meetingType: meetingType,
+      address: meetingType === '対面' ? addressInput.value.trim() : '',
+      email: document.getElementById('email').value.trim(),
+      contactName: document.getElementById('contactName').value.trim(),
+      phoneNumber: document.getElementById('phoneNumber').value.trim()
+    };
+
+    if (!data.companyName || !data.meetingDatetime || !data.email) {
+      statusEl.textContent = '必須項目を入力してください';
+      statusEl.className = 'status error';
+      return;
+    }
+    if (meetingType === '対面' && !data.address) {
+      statusEl.textContent = '対面の場合は住所を入力してください';
+      statusEl.className = 'status error';
+      return;
+    }
+
+    if (SCRIPT_URL.indexOf('YOUR_GOOGLE_APPS_SCRIPT') !== -1) {
+      statusEl.textContent = 'スクリプトURLが未設定です';
+      statusEl.className = 'status error';
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '保存中...';
+    statusEl.textContent = '';
+    statusEl.className = 'status';
+
+    try {
+      await fetch(SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(data)
+      });
+
+      statusEl.textContent = '保存しました';
+      statusEl.className = 'status success';
+      form.reset();
+      segment.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      segment.querySelector('button[data-value="オンライン"]').classList.add('active');
+      meetingType = 'オンライン';
+      addressField.classList.remove('show');
+    } catch (err) {
+      statusEl.textContent = '保存に失敗しました。通信環境をご確認ください';
+      statusEl.className = 'status error';
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '保存する';
+    }
+  });
+</script>
+
+</body>
+</html>
