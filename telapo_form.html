@@ -153,6 +153,11 @@
   .stack-legend-row .sw{width:10px;height:10px;border-radius:3px;flex:0 0 auto;}
   .stack-legend-row .lbl-txt{flex:1;}
 
+  .scope-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+  .scope-tabs button{background:none;border:none;padding:10px 6px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .scope-tabs button.active{color:var(--navy);border-bottom-color:var(--navy);}
+  .scope-tabs button:hover{color:var(--navy-2);}
+
   .empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 10px;}
   .sync-row{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub);flex-wrap:wrap;}
   .sync-row input{flex:1;min-width:180px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;font-size:11px;}
@@ -182,6 +187,11 @@
         <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
       </div>
 
+      <div class="scope-tabs" id="workerScopeTabs">
+        <button data-scope="own" class="scope-tab active">①自社稼働者</button>
+        <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
+      </div>
+
       <div class="grid-kpi" id="workerKpiRow"></div>
 
       <div class="filter-bar">
@@ -192,16 +202,7 @@
           <option value="retiring">退職予定</option>
           <option value="resigned">退職済み</option>
         </select>
-        <select id="filterChannel">
-          <option value="all">経路: 全て</option>
-          <option value="own_all">①自社集客(全体)</option>
-          <optgroup label="─ 自社集客の内訳">
-            <option value="own_jobA">　Zone</option>
-            <option value="own_jobB">　NC</option>
-            <option value="own_referral">　リファラル</option>
-          </optgroup>
-          <option value="partner_all">②パートナー集客(全体)</option>
-        </select>
+        <select id="filterChannel"></select>
         <input id="filterSearch" placeholder="氏名で検索">
         <select id="sortOrder">
           <option value="hire_desc">入職日: 新しい順</option>
@@ -597,9 +598,8 @@ function currentAssignment(workerId){
 }
 function matchesChannelFilter(s, val){
   if(val==='all') return true;
-  if(val==='own_all') return s.channelType==='own';
-  if(val==='partner_all') return s.channelType==='partner';
   if(val.startsWith('own_')) return s.channelType==='own' && s.channelDetail===val.replace('own_','');
+  if(val.startsWith('partner_')) return s.channelType==='partner' && s.channelDetail===decodeURIComponent(val.replace('partner_',''));
   return true;
 }
 function populateManagerSelects(){
@@ -615,13 +615,41 @@ function populateManagerSelects(){
 }
 
 /* ============ render: workers ============ */
+let workerScopeTab = lsGet('crm-worker-scope-tab') || 'own';
+let filterChannelSignature = '';
+
+function populateFilterChannelForTab(){
+  const scoped = workers.filter(s=>s.channelType===workerScopeTab);
+  let optsHtml = '';
+  let sig = '';
+  if(workerScopeTab==='own'){
+    sig = 'own';
+    optsHtml = `<option value="all">経路: 全て</option>
+      <option value="own_jobA">Zone</option>
+      <option value="own_jobB">NC</option>
+      <option value="own_referral">リファラル</option>`;
+  }else{
+    const partnerNames = [...new Set(scoped.map(s=> s.channelDetail || '(パートナー名未入力)'))].sort();
+    sig = 'partner:' + partnerNames.join(',');
+    optsHtml = `<option value="all">パートナー: 全て</option>` +
+      partnerNames.map(n=> `<option value="partner_${encodeURIComponent(n)}">${n}</option>`).join('');
+  }
+  if(sig === filterChannelSignature) return;
+  filterChannelSignature = sig;
+  const current = $('filterChannel').value;
+  $('filterChannel').innerHTML = optsHtml;
+  if([...$('filterChannel').options].some(o=>o.value===current)) $('filterChannel').value = current;
+}
+
 function renderWorkers(){
+  populateFilterChannelForTab();
   const fManager = $('filterManager').value;
   const fStatus = $('filterStatus').value;
   const fChannel = $('filterChannel').value;
   const fSearch = $('filterSearch').value.trim().toLowerCase();
 
-  const filtered = workers.filter(s=>
+  const scoped = workers.filter(s=>s.channelType===workerScopeTab);
+  const filtered = scoped.filter(s=>
     (fManager==='all' || s.managerId===fManager) &&
     (fStatus==='all' || s.status===fStatus) &&
     matchesChannelFilter(s, fChannel) &&
@@ -664,13 +692,13 @@ function renderWorkers(){
   tbody.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> openWorkerModal(b.dataset.edit)));
   tbody.querySelectorAll('[data-quitquick]').forEach(b=> b.addEventListener('click', ()=> quickMarkLeaving(b.dataset.quitquick)));
 
-  const active = workers.filter(s=>s.status!=='resigned');
+  const active = scoped.filter(s=>s.status!=='resigned');
   const now = new Date();
   const thisMonthKey = now.toISOString().slice(0,7);
   const nextMonthKey = new Date(now.getFullYear(), now.getMonth()+1, 1).toISOString().slice(0,7);
-  const thisMonthHires = workers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===thisMonthKey).length;
-  const nextMonthLeaving = workers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===nextMonthKey).length;
-  const alreadyLeft = workers.filter(s=>s.status==='resigned').length;
+  const thisMonthHires = scoped.filter(s=> s.hireDate && s.hireDate.slice(0,7)===thisMonthKey).length;
+  const nextMonthLeaving = scoped.filter(s=> s.resignDate && s.resignDate.slice(0,7)===nextMonthKey).length;
+  const alreadyLeft = scoped.filter(s=>s.status==='resigned').length;
 
   $('workerKpiRow').innerHTML = `
     <div class="kpi"><div class="num">${active.length}</div><div class="lbl">稼働中の人数</div></div>
@@ -678,7 +706,16 @@ function renderWorkers(){
     <div class="kpi"><div class="num" style="color:#a3691a;">${nextMonthLeaving}</div><div class="lbl" style="color:#a3691a;font-weight:600;">来月退職予定</div></div>
     <div class="kpi"><div class="num" style="color:var(--coral);">${alreadyLeft}</div><div class="lbl" style="color:var(--coral);font-weight:600;">離脱済み(累計)</div></div>
   `;
-  $('workerMeta').textContent = `${filtered.length} / 全 ${workers.length} 件`;
+  const tabLabel = workerScopeTab==='own' ? '自社' : 'パートナー';
+  $('workerMeta').textContent = `${tabLabel} 全${scoped.length}件中 ${filtered.length}件を表示中(会社全体: ${workers.length}件)`;
+}
+function switchWorkerScopeTab(scope){
+  workerScopeTab = scope;
+  lsSet('crm-worker-scope-tab', scope);
+  document.querySelectorAll('#workerScopeTabs .scope-tab').forEach(b=> b.classList.toggle('active', b.dataset.scope===scope));
+  filterChannelSignature = ''; // タブが変わったら経路の選択肢を作り直す
+  $('filterChannel').value = 'all';
+  renderWorkers();
 }
 
 /* ============ render: managers ============ */
@@ -1367,7 +1404,11 @@ function switchView(view){
 
 /* ============ init ============ */
 document.querySelectorAll('nav.side button').forEach(b=> b.addEventListener('click', ()=> switchView(b.dataset.view)));
-$('btnAddWorker').addEventListener('click', ()=> openWorkerModal(null));
+$('btnAddWorker').addEventListener('click', ()=>{
+  lastChannelType = workerScopeTab;
+  openWorkerModal(null);
+});
+document.querySelectorAll('#workerScopeTabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchWorkerScopeTab(b.dataset.scope)));
 $('w_btnCancel').addEventListener('click', closeWorkerModal);
 $('w_btnSave').addEventListener('click', saveWorker);
 $('w_btnDelete').addEventListener('click', deleteWorker);
@@ -1407,6 +1448,7 @@ $('btnAddPeriod').addEventListener('click', async ()=>{
 
 (async function init(){
   await loadLocal();
+  document.querySelectorAll('#workerScopeTabs .scope-tab').forEach(b=> b.classList.toggle('active', b.dataset.scope===workerScopeTab));
   // ファイルに埋め込まれたURLを常に優先して使う(設定画面は無いため)
   if(DEFAULT_GAS_URL){
     gasUrl = DEFAULT_GAS_URL;
